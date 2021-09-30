@@ -1,11 +1,4 @@
-#stuffexchange_d_bot
-#TOKEN = '2028244866:AAGgH4EE9p6fSYdi5x6l5nW953f8TE45SpA'
-
-
 from environs import Env
-env = Env()
-env.read_env()
-TOKEN = env.str('TOKEN')
 
 from django.core.management.base import BaseCommand
 from ugc.models import Profile, Stuff
@@ -23,6 +16,12 @@ from telegram.ext import (
     ConversationHandler,
     CallbackContext,
 )
+
+
+env = Env()
+env.read_env()
+TOKEN = env.str('TOKEN')
+
 # Enable logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
@@ -37,12 +36,12 @@ CHOICE, TITLE, PHOTO, CONTACT, LOCATION = range(5)
 def start(update: Update, context: CallbackContext) -> int:
     user = update.effective_user
     update.message.reply_text(f'''
-        Привет, {user.first_name}! 
-        Я помогу тебе обменять что-то ненужное на очень нужное. 
-        Чтобы разместить вещь к обмену напиши - “Добавить вещь”. 
-        После этого тебе станут доступны вещи других пользователей. 
-        Напиши “Найти вещь” и я пришлю тебе фотографии вещей для обмена. 
-        Понравилась вещь - пиши “Обменяться”, нет - снова набирай “Найти вещь”. 
+        Привет, {user.first_name}!
+        Я помогу тебе обменять что-то ненужное на очень нужное.
+        Чтобы разместить вещь к обмену напиши - “Добавить вещь”.
+        После этого тебе станут доступны вещи других пользователей.
+        Напиши “Найти вещь” и я пришлю тебе фотографии вещей для обмена.
+        Понравилась вещь - пиши “Обменяться”, нет - снова набирай “Найти вещь”.
         Нажал “обменяться”? - если владельцу вещи понравится что-то из твоих вещей, то я пришлю контакты вам обоим.
         ''',
         )
@@ -126,9 +125,22 @@ def title(update: Update, context: CallbackContext) -> int:
     return PHOTO
 
 
-#пока не работает
+#БОТ - найти вещь
 def find_item(update: Update, context: CallbackContext) -> int:
-    pass
+    reply_keyboard = [['Добавить вещь', 'Найти вещь']]
+    stuff = list(Stuff.objects.exclude(profile_id=update.message.chat_id))
+    random_stuff = random.choice(stuff)
+
+    print(random_stuff.image_url)
+    #update.message.document(file_id=random_stuff.image_url)
+
+    update.message.reply_text(
+        f'Предлагаю вещь: {random_stuff.description}',
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard, one_time_keyboard=True
+        ),
+    )
+
     return CHOICE
 
 
@@ -145,13 +157,13 @@ def add_photo_to_new_stuff(chat_id, photo_url, _new_stuff_id):
     return stuff.id
 
 
-#БОТ - добавить фото
 def photo(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Добавить вещь', 'Найти вещь']]
     global _new_stuff_id
     user = update.message.from_user
-    stuff_photo = update.message.photo[0]
-    add_photo_to_new_stuff(update.message.chat_id, stuff_photo.file_id,
+    logger.info(f"Photo test {update.message.document}")
+    stuff_photo = update.message.document['thumb']
+    add_photo_to_new_stuff(update.message.chat_id, stuff_photo['file_id'],
                            _new_stuff_id)
     logger.info("Photo of %s: %s", user.first_name, 'user_photo.jpg')
     update.message.reply_text(
@@ -230,7 +242,7 @@ class Command(BaseCommand):
                 ],
 
                 TITLE: [MessageHandler(Filters.text & ~Filters.command, title)],
-                PHOTO: [MessageHandler(Filters.photo, photo)],
+                PHOTO: [MessageHandler(Filters.document, photo)],
                 LOCATION: [MessageHandler(Filters.location, location)],
             },
             fallbacks=[CommandHandler('stop', stop)],
