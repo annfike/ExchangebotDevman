@@ -6,6 +6,8 @@ from ugc.models import Profile, Stuff
 
 import logging
 import random
+import os
+import uuid
 
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update, KeyboardButton
 from telegram.ext import (
@@ -44,7 +46,7 @@ def start(update: Update, context: CallbackContext) -> int:
         Понравилась вещь - пиши “Обменяться”, нет - снова набирай “Найти вещь”.
         Нажал “обменяться”? - если владельцу вещи понравится что-то из твоих вещей, то я пришлю контакты вам обоим.
         ''',
-        )
+                              )
     reply_keyboard = [['Добавить вещь', 'Найти вещь']]
     # добавляем юзера в ДБ, проверяем есть ли контакт и локация
     is_contact, is_location = add_user_to_db(update.message.chat_id, user)
@@ -70,13 +72,15 @@ def start(update: Update, context: CallbackContext) -> int:
     #    return LOCATION
 
     update.message.reply_text('Что хочешь?',
-        reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, one_time_keyboard=True, input_field_placeholder='Что желаете?'
-        ),
-    )
+                              reply_markup=ReplyKeyboardMarkup(
+                                  reply_keyboard, one_time_keyboard=True, input_field_placeholder='Что желаете?'
+                                  ),
+                              )
     return CHOICE
 
 #добавляем юзера в ДБ
+
+
 def add_user_to_db(chat_id, user):
     profile, _ = Profile.objects.get_or_create(external_id=chat_id)
 
@@ -88,15 +92,17 @@ def add_user_to_db(chat_id, user):
     profile.save()
 
     logger.info(f'Update_user {profile.external_id}, username '
-        f'{profile.username}, contact {profile.contact}')
-    logger.info(f'Is user contact: {bool(profile.username or profile.contact)}')
+                f'{profile.username}, contact {profile.contact}')
+    logger.info(
+        f'Is user contact: {bool(profile.username or profile.contact)}')
     return profile.username or profile.contact, bool(profile.lat)
 
 
 #БОТ - добавить вещь
 def add_item(update: Update, context: CallbackContext) -> int:
     user = update.message.from_user
-    logger.info("choice of %s, %s: %s", user.first_name, user.id, update.message.text)
+    logger.info("choice of %s, %s: %s", user.first_name,
+                user.id, update.message.text)
     update.message.reply_text(
         'Ок! Напиши название вещи',
         reply_markup=ReplyKeyboardRemove(),
@@ -104,6 +110,8 @@ def add_item(update: Update, context: CallbackContext) -> int:
     return TITLE
 
 #создаем вещь в БД
+
+
 def create_new_stuff(chat_id, user, title):
     profile = Profile.objects.get(external_id=chat_id)
     stuff = Stuff.objects.create(
@@ -113,6 +121,8 @@ def create_new_stuff(chat_id, user, title):
     return stuff.id
 
 #БОТ - название вещи
+
+
 def title(update: Update, context: CallbackContext) -> int:
     global _new_stuff_id
     user = update.message.from_user
@@ -120,8 +130,10 @@ def title(update: Update, context: CallbackContext) -> int:
     stuff_id = create_new_stuff(update.message.chat_id, user,
                                 stuff_title)
     _new_stuff_id = stuff_id
-    logger.info("Название вещи of %s: %s", user.first_name, update.message.text)
-    update.message.reply_text(f'Спасибо, вещь {stuff_title} добавлена. Загрузи фото.')
+    logger.info("Название вещи of %s: %s",
+                user.first_name, update.message.text)
+    update.message.reply_text(
+        f'Спасибо, вещь {stuff_title} добавлена. Загрузи фото.')
     return PHOTO
 
 
@@ -151,6 +163,8 @@ def want_exchange(update: Update, context: CallbackContext) -> int:
     return TITLE
 
 #добавляем фото вещи
+
+
 def add_photo_to_new_stuff(chat_id, photo_url, _new_stuff_id):
     stuff = Stuff.objects.get(id=_new_stuff_id)
     stuff.image_url = photo_url
@@ -162,8 +176,12 @@ def photo(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Добавить вещь', 'Найти вещь']]
     global _new_stuff_id
     user = update.message.from_user
-    stuff_photo = update.message.photo[0]
-    add_photo_to_new_stuff(update.message.chat_id, stuff_photo['file_id'],
+    newFile = update.message.effective_attachment[-1].get_file()
+    file_name = f"{str(uuid.uuid4())}.jpg"
+    current_dir = os.getcwd()
+    full_path_file = os.path.join(current_dir, file_name)
+    newFile.download(full_path_file)
+    add_photo_to_new_stuff(update.message.chat_id, file_name,
                            _new_stuff_id)
     logger.info("Photo of %s: %s", user.first_name, 'user_photo.jpg')
     update.message.reply_text(
@@ -175,6 +193,8 @@ def photo(update: Update, context: CallbackContext) -> int:
     return CHOICE
 
 #добавляем локацию в БД
+
+
 def location(update: Update, context: CallbackContext) -> int:
     profile = Profile.objects.get(external_id=update.message.chat_id)
     if update.message.location:
@@ -194,12 +214,16 @@ def location(update: Update, context: CallbackContext) -> int:
     return CHOICE
 
 #БОТ - команда стоп
+
+
 def stop(update, context):
     user = update.effective_user
     update.message.reply_text(f'До свидания, {user.first_name}!')
     return ConversationHandler.END
 
 #БОТ - нераспознанная команда
+
+
 def unknown(update, context):
     reply_keyboard = [['Добавить вещь', 'Найти вещь']]
     update.message.reply_text(
