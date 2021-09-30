@@ -162,8 +162,8 @@ def photo(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Добавить вещь', 'Найти вещь']]
     global _new_stuff_id
     user = update.message.from_user
-    stuff_photo = update.message.document['file_id']
-    add_photo_to_new_stuff(update.message.chat_id, stuff_photo,
+    stuff_photo = update.message.photo[0]
+    add_photo_to_new_stuff(update.message.chat_id, stuff_photo['file_id'],
                            _new_stuff_id)
     logger.info("Photo of %s: %s", user.first_name, 'user_photo.jpg')
     update.message.reply_text(
@@ -242,7 +242,7 @@ class Command(BaseCommand):
                 ],
 
                 TITLE: [MessageHandler(Filters.text & ~Filters.command, title)],
-                PHOTO: [MessageHandler(Filters.document, photo)],
+                PHOTO: [MessageHandler(Filters.photo, photo)],
                 LOCATION: [MessageHandler(Filters.location, location)],
             },
             fallbacks=[CommandHandler('stop', stop)],
