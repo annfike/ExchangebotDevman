@@ -48,26 +48,26 @@ def start(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Добавить вещь', 'Найти вещь']]
     # добавляем юзера в ДБ, проверяем есть ли контакт и локация
     is_contact, is_location = add_user_to_db(update.message.chat_id, user)
-    if not is_contact:
-        update.message.reply_text(
-            text=(f'''
-                    Привет, {user.first_name}!
-                    Напиши, пожалуйста, контакты для связи.
-                    '''
-                  )
-        )
-        return CONTACT
-    if not is_location:
-        keyboard_location = [
-        [KeyboardButton('Отправить локацию 🗺️', request_location=True)],
-    ]
-        update.message.reply_text(
-            text='У меня нет твоего местоположения, отправь локацию, пожалуйста.',
-            reply_markup=ReplyKeyboardMarkup(
-                keyboard_location, one_time_keyboard=True
-            ),
-        )
-        return LOCATION
+    #if not is_contact:
+    #    update.message.reply_text(
+    #        text=(f'''
+    #                Привет, {user.first_name}!
+    #                Напиши, пожалуйста, контакты для связи.
+    #                '''
+    #              )
+    #    )
+    #    return CONTACT
+    #if not is_location:
+    #    keyboard_location = [
+    #    [KeyboardButton('Отправить локацию 🗺️', request_location=True)],
+    #]
+    #    update.message.reply_text(
+    #        text='У меня нет твоего местоположения, отправь локацию, пожалуйста.',
+    #        reply_markup=ReplyKeyboardMarkup(
+    #            keyboard_location, one_time_keyboard=True
+    #        ),
+    #    )
+    #    return LOCATION
 
     update.message.reply_text('Что хочешь?',
         reply_markup=ReplyKeyboardMarkup(
@@ -128,12 +128,13 @@ def title(update: Update, context: CallbackContext) -> int:
 #БОТ - найти вещь
 def find_item(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Добавить вещь', 'Найти вещь']]
-    stuff = list(Stuff.objects.exclude(profile_id=update.message.chat_id))
+    profile = Profile.objects.get(external_id=update.message.chat_id)
+    stuff = list(Stuff.objects.exclude(profile=profile.id))
     random_stuff = random.choice(stuff)
 
-    print(random_stuff.image_url)
-    #update.message.document(file_id=random_stuff.image_url)
+    logger.info(f"Show item: {random_stuff.description}")
 
+    update.message.reply_document(random_stuff.image_url)
     update.message.reply_text(
         f'Предлагаю вещь: {random_stuff.description}',
         reply_markup=ReplyKeyboardMarkup(
@@ -161,9 +162,8 @@ def photo(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Добавить вещь', 'Найти вещь']]
     global _new_stuff_id
     user = update.message.from_user
-    logger.info(f"Photo test {update.message.document}")
-    stuff_photo = update.message.document['thumb']
-    add_photo_to_new_stuff(update.message.chat_id, stuff_photo['file_id'],
+    stuff_photo = update.message.document['file_id']
+    add_photo_to_new_stuff(update.message.chat_id, stuff_photo,
                            _new_stuff_id)
     logger.info("Photo of %s: %s", user.first_name, 'user_photo.jpg')
     update.message.reply_text(
