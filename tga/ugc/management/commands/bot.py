@@ -1,6 +1,12 @@
 #stuffexchange_d_bot
-#token_tg = '2028244866:AAGgH4EE9p6fSYdi5x6l5nW953f8TE45SpA'
-from django.conf import settings
+#TOKEN = '2028244866:AAGgH4EE9p6fSYdi5x6l5nW953f8TE45SpA'
+
+
+from environs import Env
+env = Env()
+env.read_env()
+TOKEN = env.str('TOKEN')
+
 from django.core.management.base import BaseCommand
 from ugc.models import Profile, Stuff
 
@@ -8,7 +14,7 @@ from ugc.models import Profile, Stuff
 import logging
 import random
 
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update, KeyboardButton
 from telegram.ext import (
     Updater,
     CommandHandler,
@@ -25,6 +31,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 CHOICE, TITLE, PHOTO, CONTACT, LOCATION = range(5)
+
 
 # БОТ - начало
 def start(update: Update, context: CallbackContext) -> int:
@@ -52,8 +59,14 @@ def start(update: Update, context: CallbackContext) -> int:
         )
         return CONTACT
     if not is_location:
+        keyboard_location = [
+        [KeyboardButton('Отправить локацию 🗺️', request_location=True)],
+    ]
         update.message.reply_text(
             text='У меня нет твоего местоположения, отправь локацию, пожалуйста.',
+            reply_markup=ReplyKeyboardMarkup(
+                keyboard_location, one_time_keyboard=True
+            ),
         )
         return LOCATION
 
@@ -112,13 +125,14 @@ def title(update: Update, context: CallbackContext) -> int:
     update.message.reply_text(f'Спасибо, вещь {stuff_title} добавлена. Загрузи фото.')
     return PHOTO
 
+
 #пока не работает
 def find_item(update: Update, context: CallbackContext) -> int:
     pass
     return CHOICE
 
 
-#эта функция пока не рабочая, просто скопировала add_item
+#пока не работает
 def want_exchange(update: Update, context: CallbackContext) -> int:
     pass
     return TITLE
@@ -167,15 +181,27 @@ def location(update: Update, context: CallbackContext) -> int:
                     f'местоположение {profile.lat}, {profile.lon}')
     return CHOICE
 
-
+#БОТ - команда стоп
 def stop(update, context):
     user = update.effective_user
-    update.message.reply_text(f'До свидания, {user.username}!')
+    update.message.reply_text(f'До свидания, {user.first_name}!')
     return ConversationHandler.END
 
+#БОТ - нераспознанная команда
 def unknown(update, context):
-    update.message.reply_text(chat_id=update.effective_chat.id,
-                             text="Извините, не понял, что вы хотели этим сказать, нажмите /start")
+    reply_keyboard = [['Добавить вещь', 'Найти вещь']]
+    update.message.reply_text(
+        'Извините, не понял, что вы хотели этим сказать, начнем сначала',
+        reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard, one_time_keyboard=True
+        )
+    )
+    return CHOICE
+
+
+def error(bot, update, error):
+    logger.error('Update "%s" caused error "%s"', update, error)
+    return CHOICE
 
 
 class Command(BaseCommand):
@@ -183,7 +209,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         # Create the Updater and pass it your bot's token.
-        updater = Updater("2028244866:AAGgH4EE9p6fSYdi5x6l5nW953f8TE45SpA")
+        updater = Updater(TOKEN)
 
         # Get the dispatcher to register handlers
         dispatcher = updater.dispatcher
@@ -211,6 +237,7 @@ class Command(BaseCommand):
         )
 
         dispatcher.add_handler(conv_handler)
+        dispatcher.add_error_handler(error)
 
         # Start the Bot
         updater.start_polling()
