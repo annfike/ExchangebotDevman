@@ -41,3 +41,22 @@ class Stuff(models.Model):
     class Meta:
         verbose_name = 'Вещь'
         verbose_name_plural = 'Вещи'
+
+
+class Excahnge(models.Model):
+    first_user_id = models.PositiveIntegerField(
+        verbose_name='Первый пользователь для обмена',
+         blank=True, null=True,
+    )
+    second_user_id = models.PositiveIntegerField(
+        verbose_name='Второй пользователь для обмена',
+         blank=True, null=True,
+    )
+    first_stuff_descr = models.CharField(max_length=256,
+         blank=True, null=True, index)
+    second_stuff_descr = models.CharField(max_length=256,
+         blank=True, null=True,)
+
+    class Meta:
+        verbose_name = 'Пользователи для обмена'
+        verbose_name_plural = 'Пользователи для обмена'
