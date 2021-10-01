@@ -137,25 +137,6 @@ def title(update: Update, context: CallbackContext) -> int:
     return PHOTO
 
 
-#БОТ - найти вещь
-def find_item(update: Update, context: CallbackContext) -> int:
-    reply_keyboard = [['Добавить вещь', 'Найти вещь']]
-    profile = Profile.objects.get(external_id=update.message.chat_id)
-    stuff = list(Stuff.objects.exclude(profile=profile.id))
-    random_stuff = random.choice(stuff)
-
-    logger.info(f"Show item: {random_stuff.description}")
-
-    update.message.reply_document(random_stuff.image_url)
-    update.message.reply_text(
-        f'Предлагаю вещь: {random_stuff.description}',
-        reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, one_time_keyboard=True
-        ),
-    )
-
-    return CHOICE
-
 
 #пока не работает
 def want_exchange(update: Update, context: CallbackContext) -> int:
@@ -182,7 +163,7 @@ def photo(update: Update, context: CallbackContext) -> int:
     file_name = f"{str(uuid.uuid4())}.jpg"
     full_path_file = os.path.join(images_dir, file_name)
     newFile.download(full_path_file)
-    add_photo_to_new_stuff(update.message.chat_id, os.path.join('\images', file_name),
+    add_photo_to_new_stuff(update.message.chat_id, os.path.join('images', file_name),
                            _new_stuff_id)
     logger.info("Photo of %s: %s", user.first_name, file_name)
     update.message.reply_text(
@@ -192,6 +173,23 @@ def photo(update: Update, context: CallbackContext) -> int:
         ),
     )
     return CHOICE
+
+# БОТ - найти вещь
+def find_item(update: Update, context: CallbackContext) -> int:
+    reply_keyboard = [['Добавить вещь', 'Найти вещь', 'Обменяться']]
+    profile = Profile.objects.get(external_id=update.message.chat_id)
+    stuff = list(Stuff.objects.exclude(profile=profile.id))
+    random_stuff = random.choice(stuff)
+    logger.info(f"Show item: {random_stuff.description}")
+    context.bot.send_photo(chat_id=update.message.chat_id, photo=open(random_stuff.image_url, 'rb'))
+    update.message.reply_text(
+        f'Предлагаю вещь: {random_stuff.description}. Что теперь хочешь?',
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard, one_time_keyboard=True
+        ),
+    )
+    return CHOICE
+
 
 #добавляем локацию в БД
 def location(update: Update, context: CallbackContext) -> int:
