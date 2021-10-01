@@ -45,16 +45,16 @@ class Stuff(models.Model):
 class Excahnge(models.Model):
     first_user_id = models.PositiveIntegerField(
         verbose_name='Первый пользователь для обмена',
-         blank=True, null=True,
+         blank=True, null=True, db_index=True,
     )
     second_user_id = models.PositiveIntegerField(
         verbose_name='Второй пользователь для обмена',
-         blank=True, null=True,
+         blank=True, null=True, db_index=True,
     )
     first_stuff_descr = models.CharField(max_length=256,
-         blank=True, null=True, index)
+         blank=True, null=True, db_index=True,)
     second_stuff_descr = models.CharField(max_length=256,
-         blank=True, null=True,)
+         blank=True, null=True, db_index=True,)
 
     class Meta:
         verbose_name = 'Пользователи для обмена'
