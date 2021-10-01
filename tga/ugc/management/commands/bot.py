@@ -32,11 +32,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 CHOICE, TITLE, PHOTO, CONTACT, LOCATION = range(5)
-WANT_EXCHANGE = None
 
 
 # БОТ - начало
 def start(update: Update, context: CallbackContext) -> int:
+    global _want_exchange
+    _want_exchange = None
     user = update.effective_user
     update.message.reply_text(f'''
         Привет, {user.first_name}!
@@ -127,7 +128,7 @@ def title(update: Update, context: CallbackContext) -> int:
     stuff_title = update.message.text
     stuff_id = create_new_stuff(update.message.chat_id, user,
                                 stuff_title)
-    _new_stuff_id = stuff_id
+    _new_stuff_id = stuff_i
     logger.info("Название вещи of %s: %s",
                 user.first_name, update.message.text)
     update.message.reply_text(
@@ -137,11 +138,14 @@ def title(update: Update, context: CallbackContext) -> int:
 
 #БОТ - Обменяться
 def want_exchange(update: Update, context: CallbackContext) -> int:
+    global _user_id
+    global _want_exchange
+    reply_keyboard = [['Добавить вещь', 'Найти вещь', 'Обменяться']]
     stuff_title = update.message.text
     exchange, _ = Exchange.objects.get_or_create(first_user_id=update.message.chat_id,
         second_user_id=_user_id, second_stuff_descr = stuff_title)
 
-    WANT_EXCHANGE = _user_id
+    _want_exchange = _user_id
 
     exchange.save()
 
@@ -189,8 +193,10 @@ def find_item(update: Update, context: CallbackContext) -> int:
     global _user_id
     reply_keyboard = [['Добавить вещь', 'Найти вещь', 'Обменяться']]
     profile = Profile.objects.get(external_id=update.message.chat_id)
-    if WANT_EXCHANGE:
-        ordering = f'FIELD(`id`, {_want_exchange})'
+    if _want_exchange:
+        pk_list = [_want_exchange]
+        clauses = ' '.join(['WHEN id=%s THEN %s' % (pk, i) for i, pk in enumerate(pk_list)])
+        ordering = 'CASE %s END' % clauses
         stuff = list(Stuff.objects.exclude(profile=profile.id).extra(
            select={'ordering': ordering}, order_by=('ordering',)))
     else:
@@ -227,17 +233,15 @@ def location(update: Update, context: CallbackContext) -> int:
                     f'местоположение {profile.lat}, {profile.lon}')
     return CHOICE
 
+
 #БОТ - команда стоп
-
-
 def stop(update, context):
     user = update.effective_user
     update.message.reply_text(f'До свидания, {user.first_name}!')
     return ConversationHandler.END
 
+
 #БОТ - нераспознанная команда
-
-
 def unknown(update, context):
     reply_keyboard = [['Добавить вещь', 'Найти вещь']]
     update.message.reply_text(
