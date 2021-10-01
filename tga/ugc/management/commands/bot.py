@@ -173,17 +173,18 @@ def add_photo_to_new_stuff(chat_id, photo_url, _new_stuff_id):
 
 
 def photo(update: Update, context: CallbackContext) -> int:
+    images_dir = os.path.join(os.getcwd(), 'images')
+    os.makedirs(images_dir, exist_ok=True)
     reply_keyboard = [['Добавить вещь', 'Найти вещь']]
     global _new_stuff_id
     user = update.message.from_user
     newFile = update.message.effective_attachment[-1].get_file()
     file_name = f"{str(uuid.uuid4())}.jpg"
-    current_dir = os.getcwd()
-    full_path_file = os.path.join(current_dir, file_name)
+    full_path_file = os.path.join(images_dir, file_name)
     newFile.download(full_path_file)
-    add_photo_to_new_stuff(update.message.chat_id, file_name,
+    add_photo_to_new_stuff(update.message.chat_id, os.path.join('\images', file_name),
                            _new_stuff_id)
-    logger.info("Photo of %s: %s", user.first_name, 'user_photo.jpg')
+    logger.info("Photo of %s: %s", user.first_name, file_name)
     update.message.reply_text(
         'Фото добавлено, что дальше делаем?',
         reply_markup=ReplyKeyboardMarkup(
@@ -193,8 +194,6 @@ def photo(update: Update, context: CallbackContext) -> int:
     return CHOICE
 
 #добавляем локацию в БД
-
-
 def location(update: Update, context: CallbackContext) -> int:
     profile = Profile.objects.get(external_id=update.message.chat_id)
     if update.message.location:
