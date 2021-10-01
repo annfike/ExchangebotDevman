@@ -42,7 +42,7 @@ class Stuff(models.Model):
         verbose_name_plural = 'Вещи'
 
 
-class Excahnge(models.Model):
+class Exchange(models.Model):
     first_user_id = models.PositiveIntegerField(
         verbose_name='Первый пользователь для обмена',
          blank=True, null=True, db_index=True,
