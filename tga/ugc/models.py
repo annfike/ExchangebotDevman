@@ -18,6 +18,7 @@ class Profile(models.Model):
 
     lat = models.FloatField('Широта', blank=True, null=True)
     lon = models.FloatField('Долгота', blank=True, null=True)
+    )
 
     def __str__(self):
         return f'{self.first_name} ({self.external_id})'
