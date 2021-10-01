@@ -32,6 +32,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 CHOICE, TITLE, PHOTO, CONTACT, LOCATION = range(5)
+WANT_EXCHANGE = None
 
 
 # БОТ - начало
@@ -140,7 +141,16 @@ def want_exchange(update: Update, context: CallbackContext) -> int:
     exchange, _ = Exchange.objects.get_or_create(first_user_id=update.message.chat_id,
         second_user_id=_user_id, second_stuff_descr = stuff_title)
 
+    WANT_EXCHANGE = _user_id
+
     exchange.save()
+
+    update.message.reply_text(
+        'Информация об обмене сохранена.',
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard, one_time_keyboard=True
+        ),
+    )
     return CHOICE
 
 
@@ -179,7 +189,12 @@ def find_item(update: Update, context: CallbackContext) -> int:
     global _user_id
     reply_keyboard = [['Добавить вещь', 'Найти вещь', 'Обменяться']]
     profile = Profile.objects.get(external_id=update.message.chat_id)
-    stuff = list(Stuff.objects.exclude(profile=profile.id))
+    if WANT_EXCHANGE:
+        ordering = f'FIELD(`id`, {_want_exchange})'
+        stuff = list(Stuff.objects.exclude(profile=profile.id).extra(
+           select={'ordering': ordering}, order_by=('ordering',)))
+    else:
+        stuff = list(Stuff.objects.exclude(profile=profile.id))
     random_stuff = random.choice(stuff)
     _user_id = random_stuff.profile.external_id
     logger.info(f"Show item: {random_stuff.description}")
