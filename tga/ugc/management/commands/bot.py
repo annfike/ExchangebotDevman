@@ -1,7 +1,7 @@
 from environs import Env
 
 from django.core.management.base import BaseCommand
-from ugc.models import Profile, Stuff
+from ugc.models import Profile, Stuff, Exchange
 
 
 import logging
@@ -109,9 +109,8 @@ def add_item(update: Update, context: CallbackContext) -> int:
     )
     return TITLE
 
+
 #создаем вещь в БД
-
-
 def create_new_stuff(chat_id, user, title):
     profile = Profile.objects.get(external_id=chat_id)
     stuff = Stuff.objects.create(
@@ -121,8 +120,6 @@ def create_new_stuff(chat_id, user, title):
     return stuff.id
 
 #БОТ - название вещи
-
-
 def title(update: Update, context: CallbackContext) -> int:
     global _new_stuff_id
     user = update.message.from_user
@@ -137,15 +134,17 @@ def title(update: Update, context: CallbackContext) -> int:
     return PHOTO
 
 
-
-#пока не работает
+#БОТ - Обменяться
 def want_exchange(update: Update, context: CallbackContext) -> int:
-    pass
-    return TITLE
+    stuff_title = update.message.text
+    exchange, _ = Exchange.objects.get_or_create(first_user_id=update.message.chat_id,
+        second_user_id=_user_id, second_stuff_descr = stuff_title)
+
+    exchange.save()
+    return CHOICE
+
 
 #добавляем фото вещи
-
-
 def add_photo_to_new_stuff(chat_id, photo_url, _new_stuff_id):
     stuff = Stuff.objects.get(id=_new_stuff_id)
     stuff.image_url = photo_url
@@ -174,12 +173,15 @@ def photo(update: Update, context: CallbackContext) -> int:
     )
     return CHOICE
 
+
 # БОТ - найти вещь
 def find_item(update: Update, context: CallbackContext) -> int:
+    global _user_id
     reply_keyboard = [['Добавить вещь', 'Найти вещь', 'Обменяться']]
     profile = Profile.objects.get(external_id=update.message.chat_id)
     stuff = list(Stuff.objects.exclude(profile=profile.id))
     random_stuff = random.choice(stuff)
+    _user_id = random_stuff.profile.external_id
     logger.info(f"Show item: {random_stuff.description}")
     context.bot.send_photo(chat_id=update.message.chat_id, photo=open(random_stuff.image_url, 'rb'))
     update.message.reply_text(
@@ -256,7 +258,7 @@ class Command(BaseCommand):
                                    add_item),
                     MessageHandler(Filters.regex('^Найти вещь$'),
                                    find_item),
-                    MessageHandler(Filters.regex('^Хочу обменяться$'),
+                    MessageHandler(Filters.regex('^Обменяться$'),
                                    want_exchange),
                     MessageHandler(Filters.text & ~Filters.command,
                                    unknown)
