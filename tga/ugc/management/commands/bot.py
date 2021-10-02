@@ -140,14 +140,28 @@ def title(update: Update, context: CallbackContext) -> int:
 def want_exchange(update: Update, context: CallbackContext) -> int:
     global _user_id
     global _want_exchange
+    global _stuff_descr
     reply_keyboard = [['Добавить вещь', 'Найти вещь', 'Обменяться']]
-    stuff_title = update.message.text
-    exchange, _ = Exchange.objects.get_or_create(first_user_id=update.message.chat_id,
-                                                 second_user_id=_user_id, second_stuff_descr=stuff_title)
+    find_exchangers = Exchange.objects.filter(
+        second_user_id=update.message.chat_id,
+        first_stuff_descr__isnull=True)
+    if find_exchangers.count() == 0:
+        exchange, _ = Exchange.objects.get_or_create(
+            first_user_id=update.message.chat_id,
+            second_user_id=_user_id,
+            second_stuff_descr=_stuff_descr
+        )
+        exchange.save()
+    else:
+        for find_exchanger in find_exchangers:
+            msg1 = f"УРА!!! Вашу вещь {find_exchanger.second_stuff_descr} хотят обменять на {_stuff_descr}"
+            context.bot.send_message(chat_id=update.message.chat_id, text=msg1)
+            msg2 = f"УРА!!! Вашу вещь {_stuff_descr} хотят обменять на {find_exchanger.second_stuff_descr}"
+            context.bot.send_message(chat_id=_user_id, text=msg2)
+        find_exchangers.update(first_stuff_descr=_stuff_descr)
+        find_exchangers.save()
 
     _want_exchange = _user_id
-
-    exchange.save()
 
     update.message.reply_text(
         'Информация об обмене сохранена.',
@@ -191,6 +205,7 @@ def photo(update: Update, context: CallbackContext) -> int:
 # БОТ - найти вещь
 def find_item(update: Update, context: CallbackContext) -> int:
     global _user_id
+    global _stuff_descr
     reply_keyboard = [['Добавить вещь', 'Найти вещь', 'Обменяться']]
     profile = Profile.objects.get(external_id=update.message.chat_id)
     if _want_exchange:
@@ -204,6 +219,7 @@ def find_item(update: Update, context: CallbackContext) -> int:
         stuff = list(Stuff.objects.exclude(profile=profile.id))
     random_stuff = random.choice(stuff)
     _user_id = random_stuff.profile.external_id
+    _stuff_descr = random_stuff.description
     logger.info(f"Show item: {random_stuff.description}")
     context.bot.send_photo(chat_id=update.message.chat_id,
                            photo=open(random_stuff.image_url, 'rb'))
