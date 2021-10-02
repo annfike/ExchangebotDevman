@@ -80,9 +80,8 @@ def start(update: Update, context: CallbackContext) -> int:
                               )
     return CHOICE
 
+
 #добавляем юзера в ДБ
-
-
 def add_user_to_db(chat_id, user):
     profile, _ = Profile.objects.get_or_create(external_id=chat_id)
 
@@ -121,6 +120,7 @@ def create_new_stuff(chat_id, user, title):
     )
     return stuff.id
 
+
 #БОТ - название вещи
 def title(update: Update, context: CallbackContext) -> int:
     global _new_stuff_id
@@ -128,7 +128,7 @@ def title(update: Update, context: CallbackContext) -> int:
     stuff_title = update.message.text
     stuff_id = create_new_stuff(update.message.chat_id, user,
                                 stuff_title)
-    _new_stuff_id = stuff_i
+    _new_stuff_id = stuff_id
     logger.info("Название вещи of %s: %s",
                 user.first_name, update.message.text)
     update.message.reply_text(
@@ -143,7 +143,7 @@ def want_exchange(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Добавить вещь', 'Найти вещь', 'Обменяться']]
     stuff_title = update.message.text
     exchange, _ = Exchange.objects.get_or_create(first_user_id=update.message.chat_id,
-        second_user_id=_user_id, second_stuff_descr = stuff_title)
+                                                 second_user_id=_user_id, second_stuff_descr=stuff_title)
 
     _want_exchange = _user_id
 
@@ -195,7 +195,8 @@ def find_item(update: Update, context: CallbackContext) -> int:
     profile = Profile.objects.get(external_id=update.message.chat_id)
     if _want_exchange:
         pk_list = [_want_exchange]
-        clauses = ' '.join(['WHEN id=%s THEN %s' % (pk, i) for i, pk in enumerate(pk_list)])
+        clauses = ' '.join(['WHEN id=%s THEN %s' % (pk, i)
+                           for i, pk in enumerate(pk_list)])
         ordering = 'CASE %s END' % clauses
         stuff = list(Stuff.objects.exclude(profile=profile.id).extra(
            select={'ordering': ordering}, order_by=('ordering',)))
@@ -204,7 +205,8 @@ def find_item(update: Update, context: CallbackContext) -> int:
     random_stuff = random.choice(stuff)
     _user_id = random_stuff.profile.external_id
     logger.info(f"Show item: {random_stuff.description}")
-    context.bot.send_photo(chat_id=update.message.chat_id, photo=open(random_stuff.image_url, 'rb'))
+    context.bot.send_photo(chat_id=update.message.chat_id,
+                           photo=open(random_stuff.image_url, 'rb'))
     update.message.reply_text(
         f'Предлагаю вещь: {random_stuff.description}. Что теперь хочешь?',
         reply_markup=ReplyKeyboardMarkup(
