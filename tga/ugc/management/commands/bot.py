@@ -159,7 +159,6 @@ def want_exchange(update: Update, context: CallbackContext) -> int:
             msg2 = f"УРА!!! Вашу вещь {_stuff_descr} хотят обменять на {find_exchanger.second_stuff_descr}"
             context.bot.send_message(chat_id=_user_id, text=msg2)
         find_exchangers.update(first_stuff_descr=_stuff_descr)
-        find_exchangers.save()
 
     _want_exchange = _user_id
 

@@ -1,6 +1,8 @@
 from django.db import models
 
 # Create your models here.
+
+
 class Profile(models.Model):
     external_id = models.PositiveIntegerField(
         verbose_name='ID пользователя в Телеграме',
@@ -8,7 +10,7 @@ class Profile(models.Model):
     )
 
     username = models.CharField('Имя пользователя в Телеграме',
-                                   max_length=50, blank=True, default='')
+                                max_length=50, blank=True, default='')
     first_name = models.CharField('Имя',
                                   max_length=256, blank=True, default='')
     last_name = models.CharField('Фамилия',
@@ -45,16 +47,17 @@ class Stuff(models.Model):
 class Exchange(models.Model):
     first_user_id = models.PositiveIntegerField(
         verbose_name='Первый пользователь для обмена',
-         blank=True, null=True, db_index=True,
+        blank=True, null=True, db_index=True,
     )
     second_user_id = models.PositiveIntegerField(
         verbose_name='Второй пользователь для обмена',
-         blank=True, null=True, db_index=True,
+        blank=True, null=True, db_index=True,
     )
     first_stuff_descr = models.CharField(max_length=256,
-         blank=True, null=True, db_index=True,)
+                                         blank=True, null=True, db_index=True,)
     second_stuff_descr = models.CharField(max_length=256,
-         blank=True, null=True, db_index=True,)
+                                          blank=True, null=True, db_index=True,)
+    created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name = 'Пользователи для обмена'
