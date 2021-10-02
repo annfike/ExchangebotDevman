@@ -141,6 +141,7 @@ def want_exchange(update: Update, context: CallbackContext) -> int:
     global _user_id
     global _want_exchange
     global _stuff_descr
+    global _stuff_photo
     reply_keyboard = [['Добавить вещь', 'Найти вещь', 'Обменяться']]
     find_exchangers = Exchange.objects.filter(
         second_user_id=update.message.chat_id,
@@ -205,6 +206,7 @@ def photo(update: Update, context: CallbackContext) -> int:
 def find_item(update: Update, context: CallbackContext) -> int:
     global _user_id
     global _stuff_descr
+    global _stuff_photo
     reply_keyboard = [['Добавить вещь', 'Найти вещь', 'Обменяться']]
     profile = Profile.objects.get(external_id=update.message.chat_id)
     if _want_exchange:
@@ -219,6 +221,7 @@ def find_item(update: Update, context: CallbackContext) -> int:
     random_stuff = random.choice(stuff)
     _user_id = random_stuff.profile.external_id
     _stuff_descr = random_stuff.description
+    _stuff_photo = random_stuff.image_url
     logger.info(f"Show item: {random_stuff.description}")
     context.bot.send_photo(chat_id=update.message.chat_id,
                            photo=open(random_stuff.image_url, 'rb'))
