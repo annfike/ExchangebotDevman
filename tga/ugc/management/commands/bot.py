@@ -1,7 +1,7 @@
 from environs import Env
 
 from django.core.management.base import BaseCommand
-from ugc.models import Profile, Stuff
+from ugc.models import Profile, Stuff, Exchange
 
 
 import logging
@@ -37,6 +37,8 @@ CHOICE, TITLE, PHOTO, CONTACT, LOCATION = range(5)
 
 # БОТ - начало
 def start(update: Update, context: CallbackContext) -> int:
+    global _want_exchange
+    _want_exchange = None
     user = update.effective_user
     update.message.reply_text(f'''
         Привет, {user.first_name}!
@@ -136,11 +138,41 @@ def title(update: Update, context: CallbackContext) -> int:
     return PHOTO
 
 
-
-#пока не работает
+#БОТ - Обменяться
 def want_exchange(update: Update, context: CallbackContext) -> int:
-    pass
-    return TITLE
+    global _user_id
+    global _want_exchange
+    global _stuff_descr
+    reply_keyboard = [['Добавить вещь', 'Найти вещь', 'Обменяться']]
+    find_exchangers = Exchange.objects.filter(
+        second_user_id=update.message.chat_id,
+        first_stuff_descr__isnull=True)
+    if find_exchangers.count() == 0:
+        exchange, _ = Exchange.objects.get_or_create(
+            first_user_id=update.message.chat_id,
+            second_user_id=_user_id,
+            second_stuff_descr=_stuff_descr
+        )
+        exchange.save()
+    else:
+        contact1 = Profile.objects.get(external_id=_user_id).contact
+        contact2 = Profile.objects.get(external_id=update.message.chat_id).contact
+        for find_exchanger in find_exchangers:
+            msg1 = f"УРА!!! Вашу вещь {find_exchanger.second_stuff_descr} хотят обменять на {_stuff_descr}, контакты: {contact2}"
+            context.bot.send_message(chat_id=update.message.chat_id, text=msg1)
+            msg2 = f"УРА!!! Вашу вещь {_stuff_descr} хотят обменять на {find_exchanger.second_stuff_descr}, контакты: {contact1}"
+            context.bot.send_message(chat_id=_user_id, text=msg2)
+        find_exchangers.update(first_stuff_descr=_stuff_descr)
+
+    _want_exchange = _user_id
+
+    update.message.reply_text(
+        'Информация об обмене сохранена.',
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard, one_time_keyboard=True
+        ),
+    )
+    return CHOICE
 
 
 #добавляем фото вещи
@@ -175,6 +207,8 @@ def photo(update: Update, context: CallbackContext) -> int:
 
 # БОТ - найти вещь
 def find_item(update: Update, context: CallbackContext) -> int:
+    global _user_id
+    global _stuff_descr
     reply_keyboard = [['Добавить вещь', 'Найти вещь', 'Обменяться']]
     profile = Profile.objects.get(external_id=update.message.chat_id)
     user_location = (profile.lat, profile.lon)
@@ -183,8 +217,23 @@ def find_item(update: Update, context: CallbackContext) -> int:
     owner_of_staff = random_stuff.profile
     random_stuff_location = (owner_of_staff.lat, owner_of_staff.lon)
     distance = round(GD(user_location, random_stuff_location).km)
+
+    if _want_exchange:
+        pk_list = [_want_exchange]
+        clauses = ' '.join(['WHEN id=%s THEN %s' % (pk, i)
+                           for i, pk in enumerate(pk_list)])
+        ordering = 'CASE %s END' % clauses
+        stuff = list(Stuff.objects.exclude(profile=profile.id).extra(
+           select={'ordering': ordering}, order_by=('ordering',)))
+    else:
+        stuff = list(Stuff.objects.exclude(profile=profile.id))
+    random_stuff = random.choice(stuff)
+    _user_id = random_stuff.profile.external_id
+    _stuff_descr = random_stuff.description
+
     logger.info(f"Show item: {random_stuff.description}")
-    context.bot.send_photo(chat_id=update.message.chat_id, photo=open(random_stuff.image_url, 'rb'))
+    context.bot.send_photo(chat_id=update.message.chat_id,
+                           photo=open(random_stuff.image_url, 'rb'))
     update.message.reply_text(
         f'Предлагаю вещь: {random_stuff.description} ({distance} км от тебя)',
         reply_markup=ReplyKeyboardMarkup(
@@ -214,6 +263,7 @@ def location(update: Update, context: CallbackContext) -> int:
     return CHOICE
 
 
+
 #добавляем контакты в БД
 def add_contact(update, context):
     profile = Profile.objects.get(external_id=update.message.chat_id)
@@ -240,6 +290,7 @@ def add_contact(update, context):
         )
         return LOCATION
     return CHOICE
+
 
 
 #БОТ - команда стоп
@@ -286,7 +337,7 @@ class Command(BaseCommand):
                                    add_item),
                     MessageHandler(Filters.regex('^Найти вещь$'),
                                    find_item),
-                    MessageHandler(Filters.regex('^Хочу обменяться$'),
+                    MessageHandler(Filters.regex('^Обменяться$'),
                                    want_exchange),
                     MessageHandler(Filters.text & ~Filters.command,
                                    unknown)
