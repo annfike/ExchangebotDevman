@@ -8,6 +8,7 @@ import logging
 import random
 import os
 import uuid
+from geopy.distance import geodesic as GD
 
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update, KeyboardButton
 from telegram.ext import (
@@ -50,37 +51,37 @@ def start(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Добавить вещь', 'Найти вещь']]
     # добавляем юзера в ДБ, проверяем есть ли контакт и локация
     is_contact, is_location = add_user_to_db(update.message.chat_id, user)
-    #if not is_contact:
-    #    update.message.reply_text(
-    #        text=(f'''
-    #                Привет, {user.first_name}!
-    #                Напиши, пожалуйста, контакты для связи.
-    #                '''
-    #              )
-    #    )
-    #    return CONTACT
-    #if not is_location:
-    #    keyboard_location = [
-    #    [KeyboardButton('Отправить локацию 🗺️', request_location=True)],
-    #]
-    #    update.message.reply_text(
-    #        text='У меня нет твоего местоположения, отправь локацию, пожалуйста.',
-    #        reply_markup=ReplyKeyboardMarkup(
-    #            keyboard_location, one_time_keyboard=True
-    #        ),
-    #    )
-    #    return LOCATION
+    if not is_contact:
+        update.message.reply_text(
+            text=(f'''
+                    Привет, {user.first_name}!
+                    Напиши, пожалуйста, контакты для связи.
+                    '''
+                  )
+        )
+        return CONTACT
+    if not is_location:
+        keyboard_location = [
+        [KeyboardButton('Отправить локацию 🗺️', request_location=True)],
+    ]
+        update.message.reply_text(
+            text='У меня нет твоего местоположения, отправь локацию, пожалуйста.',
+            reply_markup=ReplyKeyboardMarkup(
+                keyboard_location, one_time_keyboard=True, resize_keyboard=True
+            ),
+        )
+        return LOCATION
 
     update.message.reply_text('Что хочешь?',
                               reply_markup=ReplyKeyboardMarkup(
-                                  reply_keyboard, one_time_keyboard=True, input_field_placeholder='Что желаете?'
+                                  reply_keyboard, one_time_keyboard=True,
+        resize_keyboard=True, input_field_placeholder='Что желаете?'
                                   ),
                               )
     return CHOICE
 
+
 #добавляем юзера в ДБ
-
-
 def add_user_to_db(chat_id, user):
     profile, _ = Profile.objects.get_or_create(external_id=chat_id)
 
@@ -109,9 +110,8 @@ def add_item(update: Update, context: CallbackContext) -> int:
     )
     return TITLE
 
+
 #создаем вещь в БД
-
-
 def create_new_stuff(chat_id, user, title):
     profile = Profile.objects.get(external_id=chat_id)
     stuff = Stuff.objects.create(
@@ -120,9 +120,8 @@ def create_new_stuff(chat_id, user, title):
     )
     return stuff.id
 
+
 #БОТ - название вещи
-
-
 def title(update: Update, context: CallbackContext) -> int:
     global _new_stuff_id
     user = update.message.from_user
@@ -143,9 +142,8 @@ def want_exchange(update: Update, context: CallbackContext) -> int:
     pass
     return TITLE
 
+
 #добавляем фото вещи
-
-
 def add_photo_to_new_stuff(chat_id, photo_url, _new_stuff_id):
     stuff = Stuff.objects.get(id=_new_stuff_id)
     stuff.image_url = photo_url
@@ -169,23 +167,28 @@ def photo(update: Update, context: CallbackContext) -> int:
     update.message.reply_text(
         'Фото добавлено, что дальше делаем?',
         reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, one_time_keyboard=True
+            reply_keyboard, one_time_keyboard=True, resize_keyboard=True
         ),
     )
     return CHOICE
+
 
 # БОТ - найти вещь
 def find_item(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Добавить вещь', 'Найти вещь', 'Обменяться']]
     profile = Profile.objects.get(external_id=update.message.chat_id)
+    user_location = (profile.lat, profile.lon)
     stuff = list(Stuff.objects.exclude(profile=profile.id))
     random_stuff = random.choice(stuff)
+    owner_of_staff = random_stuff.profile
+    random_stuff_location = (owner_of_staff.lat, owner_of_staff.lon)
+    distance = round(GD(user_location, random_stuff_location).km)
     logger.info(f"Show item: {random_stuff.description}")
     context.bot.send_photo(chat_id=update.message.chat_id, photo=open(random_stuff.image_url, 'rb'))
     update.message.reply_text(
-        f'Предлагаю вещь: {random_stuff.description}. Что теперь хочешь?',
+        f'Предлагаю вещь: {random_stuff.description} ({distance} км от тебя)',
         reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, one_time_keyboard=True
+            reply_keyboard, one_time_keyboard=True, resize_keyboard=True
         ),
     )
     return CHOICE
@@ -203,30 +206,56 @@ def location(update: Update, context: CallbackContext) -> int:
             f'Добавлено местоположение: {profile.lat}, {profile.lon},'
             f'спасибо! Итак, что желаешь?',
             reply_markup=ReplyKeyboardMarkup(
-                reply_keyboard, one_time_keyboard=True
+                reply_keyboard, one_time_keyboard=True, resize_keyboard=True
             )
         )
         logger.info(f'Пользователю {profile.external_id} добавлено '
                     f'местоположение {profile.lat}, {profile.lon}')
     return CHOICE
 
+
+#добавляем контакты в БД
+def add_contact(update, context):
+    profile = Profile.objects.get(external_id=update.message.chat_id)
+    profile.contact = update.message.text
+    profile.save()
+    reply_keyboard = [['Добавить вещь', 'Найти вещь']]
+    update.message.reply_text(
+        f'Добавлен контакт для связи: {profile.contact}',
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard, one_time_keyboard=True
+        )
+    )
+    logger.info(f'Пользователю {profile.external_id}'
+        f'добавлен контакт {profile.contact}')
+    if not profile.lat:
+        keyboard_location = [
+            [KeyboardButton('Отправить локацию 🗺️', request_location=True)],
+        ]
+        update.message.reply_text(
+            text='У меня нет твоего местоположения, отправь локацию, пожалуйста.',
+            reply_markup=ReplyKeyboardMarkup(
+                keyboard_location, one_time_keyboard=True, resize_keyboard=True
+            ),
+        )
+        return LOCATION
+    return CHOICE
+
+
 #БОТ - команда стоп
-
-
 def stop(update, context):
     user = update.effective_user
     update.message.reply_text(f'До свидания, {user.first_name}!')
     return ConversationHandler.END
 
+
 #БОТ - нераспознанная команда
-
-
 def unknown(update, context):
     reply_keyboard = [['Добавить вещь', 'Найти вещь']]
     update.message.reply_text(
         'Извините, не понял, что вы хотели этим сказать, начнем сначала',
         reply_markup=ReplyKeyboardMarkup(
-                reply_keyboard, one_time_keyboard=True
+                reply_keyboard, one_time_keyboard=True, resize_keyboard=True
         )
     )
     return CHOICE
@@ -235,6 +264,7 @@ def unknown(update, context):
 def error(bot, update, error):
     logger.error('Update "%s" caused error "%s"', update, error)
     return CHOICE
+
 
 
 class Command(BaseCommand):
@@ -247,7 +277,7 @@ class Command(BaseCommand):
         # Get the dispatcher to register handlers
         dispatcher = updater.dispatcher
 
-        # Add conversation handler with the states CHOICE, TITLE, PHOTO, LOCATION
+        # Add conversation handler with the states CHOICE, TITLE, PHOTO, CONTACT, LOCATION
         conv_handler = ConversationHandler(
             entry_points=[CommandHandler('start', start)],
             states={
@@ -264,6 +294,7 @@ class Command(BaseCommand):
 
                 TITLE: [MessageHandler(Filters.text & ~Filters.command, title)],
                 PHOTO: [MessageHandler(Filters.photo, photo)],
+                CONTACT: [MessageHandler(Filters.text & ~Filters.command, add_contact)],
                 LOCATION: [MessageHandler(Filters.location, location)],
             },
             fallbacks=[CommandHandler('stop', stop)],
