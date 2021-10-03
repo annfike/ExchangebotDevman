@@ -153,10 +153,12 @@ def want_exchange(update: Update, context: CallbackContext) -> int:
         )
         exchange.save()
     else:
+        contact1 = Profile.objects.get(external_id=_user_id).contact
+        contact2 = Profile.objects.get(external_id=update.message.chat_id).contact
         for find_exchanger in find_exchangers:
-            msg1 = f"УРА!!! Вашу вещь {find_exchanger.second_stuff_descr} хотят обменять на {_stuff_descr}, контакты: {find_exchanger.contact}"
+            msg1 = f"УРА!!! Вашу вещь {find_exchanger.second_stuff_descr} хотят обменять на {_stuff_descr}, контакты: {contact2}"
             context.bot.send_message(chat_id=update.message.chat_id, text=msg1)
-            msg2 = f"УРА!!! Вашу вещь {_stuff_descr} хотят обменять на {find_exchanger.second_stuff_descr}, контакты: {find_exchanger.contact}"
+            msg2 = f"УРА!!! Вашу вещь {_stuff_descr} хотят обменять на {find_exchanger.second_stuff_descr}, контакты: {contact1}"
             context.bot.send_message(chat_id=_user_id, text=msg2)
         find_exchangers.update(first_stuff_descr=_stuff_descr)
 
