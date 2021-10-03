@@ -145,7 +145,7 @@ def want_exchange(update: Update, context: CallbackContext) -> int:
     find_exchangers = Exchange.objects.filter(
         second_user_id=update.message.chat_id,
         first_stuff_descr__isnull=True,
-        ).exclude(first_user_id=update.message.chat_id)
+        )
     if find_exchangers.count() == 0:
         exchange, _ = Exchange.objects.get_or_create(
             first_user_id=update.message.chat_id,
