@@ -10,6 +10,7 @@ from .models import Profile, Stuff, Exchange
 class ProfileAdmin(admin.ModelAdmin):
     list_display = ('id', 'external_id', 'username', 'first_name',
                     'last_name', 'contact')
+    list_editable = ('first_name', 'last_name', 'contact')
 
 
 @admin.register(Stuff)
